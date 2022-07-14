@@ -54,23 +54,39 @@ def find_words(file,word_input):
     
     return word_indexes,word_count
 
+def check_file_type(filename):
+    """check to see if is file or dir"""
+    is_file = False
+    for letter in filename:
+        if letter == ".":
+            is_file = True
+            break
+
+    if is_file == True:
+        file_type = "file"
+    else:
+        file_type = "dir"
+    return file_type
+
 def search_by_name(name,binds_list):
     """Searches the name parameter and asks to show content inside."""
     similars = []
+    found = False
     for bind in binds_list:
         newpath = bind.path.replace('"',"")
         for filename in dir_content(newpath):
             similarity = SequenceMatcher(None,name.strip().lower(),filename.strip().lower())
             if filename.strip().lower() == name.strip().lower():
                 file_path = glob.glob(newpath+"\\"+filename)
-                ask_to_show = input(text_with_color("Yellow","show content? y/n: ")).lower().strip()
-                if ask_to_show == "yes" or ask_to_show == "y":
-                    print_file_content(file_path[0])
-                return text_with_color("Grey","   file {} in {}, path: {}".format(filename,bind.name,file_path))
+
+                found = True
+
+                return found,(filename,bind.name,file_path)
             elif similarity.ratio() >= 0.30:
-                similars.append(text_with_color("Grey","   file {} in {}".format(filename,bind.name)))
+                file_type = check_file_type(filename)
+                similars.append(text_with_color("Grey","   {} {} in {}".format(file_type,filename,bind.name)))
     
-    return similars
+    return found,similars
 
 def choice_separator(full_choice):
     """Separe command from arguments, command (arg)."""
@@ -131,6 +147,15 @@ def keyf_read_binds(binds_list):
         binds_list.append(Bind(name=bind[0],path=bind[1],index=i))
     
     return binds_list
+
+def inside_dir(index,binds_list):
+    """Show what's inside a directory"""
+    for bind in binds_list:
+        if index == str(bind.index):
+            newpath = bind.path.replace('"',"")
+            for filename in dir_content(newpath):
+                file_type = check_file_type(filename)
+                print(text_with_color("Grey",(f"   {file_type} {filename}")))
 
 def keyf_add_binds():
     """Adds a bind to binds.txt."""
@@ -206,6 +231,10 @@ def keyf():
         full_choice = typer.prompt(">")
         full_choice_list = choice_separator(full_choice)
         choice = full_choice_list[0]
+        if len(full_choice_list) > 1:
+            #parameter is arg ex: search (arg)
+            parameter = full_choice_list[1]
+
         if choice != "0":
             for bind in binds_list:
                 if choice == str(bind.index):
@@ -219,27 +248,28 @@ def keyf():
             print("removed..")
         elif choice == "inside":
             #command (arg) -> arg is index
-            index = full_choice_list[1]
-            for bind in binds_list:
-                if index == str(bind.index):
-                    newpath = bind.path.replace('"',"")
-                    for filename in dir_content(newpath):
-                        print(text_with_color("Grey","   "+filename))
+            inside_dir(parameter,binds_list)
         elif choice == "search":
-            name = full_choice_list[1]
-            result = search_by_name(name,binds_list)
-            if type(result) == str:
-                print(result)
+            found,result = search_by_name(parameter,binds_list)
+            if found == True:
+                print(text_with_color("Grey",f"   file {result[0]} in {result[1]}, path: {result[2]}"))
             else:
                 for file in result:
                     print(file)
         elif choice == "wordfind":
             wordfind()
         elif choice == "print":
-            printpath = input("path: ")
-            newprintpath = printpath.replace('"',"")
-            print_file_content(newprintpath)
-                        
+            found,result = search_by_name(parameter,binds_list)
+            if found == True:
+                print(text_with_color("Grey",f"   file {result[0]} in {result[1]}, path: {result[2]}"))
+                ask_to_show = input(text_with_color("Yellow","   show content? y/n: ")).lower().strip()
+                if ask_to_show == "yes" or ask_to_show == "y":
+                    print_file_content(result[2][0])
+            else:
+                print(text_with_color("Red","   Not found, maybe one of these?"))
+                for file in result:
+                    print(file)
+                    
 
 
     print("exiting...")

@@ -48,7 +48,7 @@ def find_words(path,word_input):
     with open(path,"r",encoding="utf-8") as file:
         for i,line in enumerate(file):
             for word in line.split():
-                if word == word_input:
+                if word.strip().lower() == word_input.strip().lower():
                     word_count += 1
                     word_indexes.append("word: {} | line: {}".format(word,i+1))
     
@@ -117,7 +117,7 @@ def choice_separator(full_choice):
     return full_choice_list
 
 def dir_content(path):
-    """Return list of directories inside a path."""
+    """Return a list of names of directories or files inside a path."""
     directory = path
     return (listdir(directory))
 

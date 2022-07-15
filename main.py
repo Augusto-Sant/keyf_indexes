@@ -41,11 +41,11 @@ def text_with_color(color,text):
     
     return (coloring+text+"\u001b[0m")
 
-def find_words(file,word_input):
+def find_words(path,word_input):
     """Finds words and returns a list of strings."""
     word_indexes = []
     word_count = 0
-    with open(file,"r") as file:
+    with open(path,"r",encoding="utf-8") as file:
         for i,line in enumerate(file):
             for word in line.split():
                 if word == word_input:
@@ -142,9 +142,13 @@ def keyf_read_binds(binds_list):
                     sequence.clear()
             bind_list_string.append(bind_data[:])
             bind_data.clear()
-            
+  
     for i,bind in enumerate(bind_list_string,start=1):
-        binds_list.append(Bind(name=bind[0],path=bind[1],index=i))
+        if i == 1:
+            #first index is dummy_dir explaining bind.txt and solves read bug
+            pass
+        else:
+            binds_list.append(Bind(name=bind[0],path=bind[1],index=i-1))
     
     return binds_list
 
@@ -175,7 +179,7 @@ def keyf_remove_binds():
 
     with open("binds.txt","w",encoding="utf-8") as file:
         for i,line in enumerate(lines):
-            if i != index-1:
+            if i != index:
                 file.write(line)
 
 def keyf_print(binds):
@@ -187,22 +191,29 @@ def keyf_print(binds):
     print("   "+text_with_color("Yellow","add")+" -> will add a new directory")
     print("   "+text_with_color("Yellow","remove")+" -> will remove a directory")
     print("   "+text_with_color("Yellow","inside (index)")+" -> show content inside directory")
-    print("   "+text_with_color("Yellow","print")+" -> finds a word in a specific file path")
-    print("   "+text_with_color("Yellow","wordfind")+" -> finds a word in a specific file")
+    print("   "+text_with_color("Yellow","print (name)")+" -> prints a file using its name")
+    print("   "+text_with_color("Yellow","wordfind (word)")+" -> finds a word in any file inside indexes")
     print("Indexes:")
     print("   "+text_with_color("Red","0. -> quits"))
     for bind in binds:
-        print(text_with_color("Blue","   {}.{}".format(bind.index,bind.name)))
+        print(text_with_color("Blue",f"   {bind.index}.{bind.name}"))
     print("-"*20)
 
-def wordfind():
+def wordfind(parameter,binds_list):
     """Find word in a specific file and show where it is and total count."""
-    file_input = input("File path: ")
-    word_input = input("Word: ").strip().lower()
-    result = find_words(file_input,word_input)
-    for i in result[0]:
-        print(i)
-    print("total count: {}".format(result[1]))
+    parameter = parameter.strip().lower()
+    for bind in binds_list:
+        newpath = bind.path.replace('"',"")
+        for file in dir_content(newpath):
+            reversed_name = file[::-1]
+            if reversed_name[:3] == "txt":
+                file_path = glob.glob(newpath+"\\"+file)
+                word_indexes,word_count = find_words(file_path[0],parameter)
+                if word_count != 0:
+                    print(text_with_color("Grey",f"   in folder {bind.name} file named {file}:"))
+                    print(text_with_color("Grey",f"      {word_indexes} total count: {word_count}"))
+            else:
+                pass
 
 #COMMANDS--
 @app.command()
@@ -210,9 +221,9 @@ def search(name):
     """Search in the directories indexed."""
     binds_list = []
     keyf_read_binds(binds_list)
-    result = search_by_name(name,binds_list)
-    if type(result) == str:
-        print(result)
+    found,result = search_by_name(name,binds_list)
+    if found == True:
+        print(text_with_color("Grey",f"   file {result[0]} in {result[1]}, path: {result[2]}"))
     else:
         for file in result:
             print(file)
@@ -257,7 +268,7 @@ def keyf():
                 for file in result:
                     print(file)
         elif choice == "wordfind":
-            wordfind()
+            wordfind(parameter,binds_list)
         elif choice == "print":
             found,result = search_by_name(parameter,binds_list)
             if found == True:

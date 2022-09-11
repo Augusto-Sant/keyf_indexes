@@ -5,8 +5,9 @@ access them easily and use commands on them.""")
 
 from os import name,system,listdir
 import glob
-
 from difflib import SequenceMatcher
+
+import pandas
 
 #DESKTOP HELPER KEYF (CLI Command Line Interface)--
 
@@ -22,6 +23,12 @@ class Bind():
         return self.name
 
 #FUNCTIONS--
+
+def clear():
+  
+    # for windows
+    if name == 'nt':
+        _ = system('cls')
 
 def text_with_color(color,text):
     """Changes text color."""
@@ -127,29 +134,11 @@ def print_file_content(path):
         for line in file:
             print(text_with_color("Grey","   "+line))
 
-def keyf_read_binds(binds_list):
-    """Reads a list of binds inside binds.txt"""
-    with open("binds.txt","r",encoding="utf-8")as file:
-        sequence = []
-        bind_data = []
-        bind_list_string = []
-        for line in file:
-            for word in line.strip():
-                if word != ",":
-                    sequence.append(word)
-                else:
-                    bind_data.append("".join(sequence))
-                    sequence.clear()
-            bind_list_string.append(bind_data[:])
-            bind_data.clear()
-  
-    for i,bind in enumerate(bind_list_string,start=1):
-        if i == 1:
-            #first index is dummy_dir explaining bind.txt and solves read bug
-            pass
-        else:
-            binds_list.append(Bind(name=bind[0],path=bind[1],index=i-1))
-    
+def keyf_read_binds(binds_list,file):
+    """Reads a list of binds inside binds.csv with pandas"""
+    for i,row in file.iterrows():
+        binds_list.append(Bind(name=row["name"],path=row["path"],index=i+1))
+
     return binds_list
 
 def inside_dir(index,binds_list):
@@ -162,25 +151,21 @@ def inside_dir(index,binds_list):
                 print(text_with_color("Grey",(f"   {file_type} {filename}")))
 
 def keyf_add_binds():
-    """Adds a bind to binds.txt."""
+    """Adds a row/bind to binds.csv."""
     name = input("Name of directory: ")
     path = input("Path of directory: ")
-    with open("binds.txt","a",encoding="utf-8") as file:
-        string = "\n{},{},".format(name,path)
-        file.write(string)
-        file.close()
+    
+    new_bind = {"name":[name],"path":[path]}
+    new_data = pandas.DataFrame(new_bind)
 
-def keyf_remove_binds():
-    """Removes a bind from binds.txt"""
+    new_data.to_csv("binds.csv", mode='a',index=False, header=False)
+
+def keyf_remove_binds(file):
+    """Removes a row/bind from binds.csv"""
     index = int(input("index: "))
 
-    with open("binds.txt","r",encoding="utf-8") as file:
-        lines = file.readlines()
-
-    with open("binds.txt","w",encoding="utf-8") as file:
-        for i,line in enumerate(lines):
-            if i != index:
-                file.write(line)
+    file.drop(index-1, inplace=True)
+    file.to_csv("binds.csv",index=False)
 
 def keyf_print(binds):
     """Prints commands and bind indexes."""
@@ -215,28 +200,7 @@ def wordfind(parameter,binds_list):
             else:
                 pass
 
-#COMMANDS--
-@app.command()
-def search(name):
-    """Search in the directories indexed."""
-    binds_list = []
-    keyf_read_binds(binds_list)
-    found,result = search_by_name(name,binds_list)
-    if found == True:
-        print(text_with_color("Grey",f"   file {result[0]} in {result[1]}, path: {result[2]}"))
-    else:
-        for file in result:
-            print(file)
-
-@app.command()
-def keyf():
-    """Main command to access indexes and commands."""
-    binds_list = []
-    keyf_read_binds(binds_list)
-    #warning for indexes size
-    if len(binds_list) == 0:
-        print(text_with_color("Red","use add command to add first index"))
-    keyf_print(binds_list)
+def ask_input(binds_list,file):
     choice = ""
     while choice != "0":
         full_choice = typer.prompt(">")
@@ -254,9 +218,13 @@ def keyf():
         if choice == "add":
             keyf_add_binds()
             print("added..")
+            #restart--
+            keyf()
         elif choice == "remove":
-            keyf_remove_binds()
+            keyf_remove_binds(file)
             print("removed..")
+            #restart--
+            keyf()
         elif choice == "inside":
             #command (arg) -> arg is index
             inside_dir(parameter,binds_list)
@@ -280,10 +248,26 @@ def keyf():
                 print(text_with_color("Red","   Not found, maybe one of these?"))
                 for file in result:
                     print(file)
-                    
-
 
     print("exiting...")
+
+
+#COMMANDS--
+@app.command()
+def keyf():
+    """Main command to access indexes and commands."""
+
+    clear()
+    #read file
+    file = pandas.read_csv("binds.csv")
+
+    binds_list = []
+    keyf_read_binds(binds_list,file)
+    #warning for indexes size
+    if len(binds_list) == 0:
+        print(text_with_color("Red","use add command to add first index"))
+    keyf_print(binds_list)
+    ask_input(binds_list,file)
 
 
 if __name__ == "__main__":
